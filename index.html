@@ -105,6 +105,9 @@
             font-size: 15px;
             line-height: 1.6;
             word-wrap: break-word;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
         }
 
         .message.ai {
@@ -119,6 +122,25 @@
             color: white;
             align-self: flex-end;
             border-bottom-right-radius: 2px;
+        }
+
+        .audio-btn {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            width: fit-content;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .audio-btn:hover {
+            background: #2563eb;
         }
 
         .app-footer {
@@ -186,7 +208,10 @@
 
         <!-- Main Conversation Area -->
         <div class="chat-body" id="chatContainer">
-            <div class="message ai" id="welcomeMsg">আসসালামু আলাইকুম! আমি আপনার এআই হায়ারিং ম্যানেজার। বাংলাতে ইন্টারভিউ শুরু করার জন্য নিচে "Start Interview" বাটনে ক্লিক করুন।</div>
+            <div class="message ai" id="welcomeMsg">
+                <span>আসসালামু আলাইকুম! আমি আপনার এআই হায়ারিং ম্যানেজার। বাংলাতে ইন্টারভিউ শুরু করার জন্য নিচে "Start Interview" বাটনে ক্লিক করুন।</span>
+                <button class="audio-btn" onclick="playAudio('আসসালামু আলাইকুম! আমি আপনার এআই হায়ারিং ম্যানেজার। বাংলাতে ইন্টারভিউ শুরু করার জন্য নিচে Start Interview বাটনে ক্লিক করুন।')">🔊 শুনুন</button>
+            </div>
         </div>
 
         <!-- Footer Control Bar -->
@@ -218,9 +243,9 @@
 
             const welcomeEl = document.getElementById('welcomeMsg');
             if (lang === 'bn') {
-                welcomeEl.innerText = 'আসসালামু আলাইকুম! আমি আপনার এআই হায়ারিং ম্যানেজার। বাংলাতে ইন্টারভিউ শুরু করার জন্য "Start Interview" বাটনে ক্লিক করুন।';
+                welcomeEl.innerHTML = `<span>আসসালামু আলাইকুম! আমি আপনার এআই হায়ারিং ম্যানেজার। বাংলাতে ইন্টারভিউ শুরু করার জন্য "Start Interview" বাটনে ক্লিক করুন।</span><button class="audio-btn" onclick="playAudio('আসসালামু আলাইকুম! আমি আপনার এআই হায়ারিং ম্যানেজার। বাংলাতে ইন্টারভিউ শুরু করার জন্য Start Interview বাটনে ক্লিক করুন।')">🔊 শুনুন</button>`;
             } else {
-                welcomeEl.innerText = 'Hello! I am your AI hiring manager. Click "Start Interview" to begin your interview in English.';
+                welcomeEl.innerHTML = `<span>Hello! I am your AI hiring manager. Click "Start Interview" to begin your interview in English.</span><button class="audio-btn" onclick="playAudio('Hello! I am your AI hiring manager. Click Start Interview to begin your interview in English.')">🔊 Listen</button>`;
             }
         }
 
@@ -228,9 +253,35 @@
             const container = document.getElementById('chatContainer');
             const msgDiv = document.createElement('div');
             msgDiv.className = `message ${sender}`;
-            msgDiv.innerText = text;
+            
+            const textSpan = document.createElement('span');
+            textSpan.innerText = text;
+            msgDiv.appendChild(textSpan);
+
+            if (sender === 'ai') {
+                const audioBtn = document.createElement('button');
+                audioBtn.className = 'audio-btn';
+                audioBtn.innerHTML = currentLang === 'bn' ? '🔊 শুনুন' : '🔊 Listen';
+                audioBtn.onclick = () => playAudio(text);
+                msgDiv.appendChild(audioBtn);
+            }
+
             container.appendChild(msgDiv);
             container.scrollTop = container.scrollHeight;
+        }
+
+        function playAudio(text) {
+            if (currentLang === 'bn') {
+                const audioUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=bn&client=tw-ob`;
+                const audio = new Audio(audioUrl);
+                audio.play().catch(e => {
+                    alert("ব্রাউজার অডিও ব্লক করেছে। দয়া করে '🔊 শুনুন' বাটনে ক্লিক করে শুনুন।");
+                });
+            } else {
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = 'en-US';
+                window.speechSynthesis.speak(utterance);
+            }
         }
 
         function initInterview() {
@@ -242,7 +293,7 @@
             document.getElementById('connectionBadge').innerText = "Live Connected";
 
             let systemPrompt = currentLang === 'bn' 
-                ? "You are a professional corporate hiring manager conducting a live mock interview. You MUST reply ONLY in pure native Bengali script (বাংলা হরফ). Never use English letters or Banglish for Bengali text. Keep your questions concise, formal, and realistic one by one based on user responses."
+                ? "You are a professional corporate hiring manager conducting a live mock interview in Bengali. Always reply in pure native Bengali script (বাংলা হরফ). Keep responses helpful and concise, asking logical follow-up questions."
                 : "You are a professional corporate hiring manager conducting a live mock interview entirely in English. Ask concise, realistic interview questions one by one based on user responses.";
 
             conversationHistory = [{
@@ -273,35 +324,27 @@
             appendMessage('ai', text);
             conversationHistory.push({ role: "model", parts: [{ text: text }] });
 
+            // Play audio and handle automatic progression
             if (currentLang === 'bn') {
-                // Google TTS Audio Stream bypasses browser voice pack limitations for native Bengali
                 const audioUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=bn&client=tw-ob`;
                 const audio = new Audio(audioUrl);
                 
                 audio.play().then(() => {
                     audio.onended = function() {
-                        if (isSessionActive) {
-                            startVoiceRecognition();
-                        }
+                        if (isSessionActive) startVoiceRecognition();
                     };
                 }).catch(err => {
-                    // Fallback if audio fails to auto-play
+                    // If autoplay is blocked, automatically start voice recognition after a brief pause so interview doesn't freeze
                     if (isSessionActive) {
-                        setTimeout(() => startVoiceRecognition(), 1500);
+                        setTimeout(() => startVoiceRecognition(), 2000);
                     }
                 });
             } else {
-                // English uses standard browser SpeechSynthesis
                 const utterance = new SpeechSynthesisUtterance(text);
                 utterance.lang = 'en-US';
-                utterance.rate = 0.95;
-
                 utterance.onend = function() {
-                    if (isSessionActive) {
-                        startVoiceRecognition();
-                    }
+                    if (isSessionActive) startVoiceRecognition();
                 };
-
                 window.speechSynthesis.speak(utterance);
             }
         }
@@ -352,11 +395,12 @@
                 });
 
                 const data = await res.json();
-                if (data.candidates && data.candidates[0].content) {
+                
+                if (data.candidates && data.candidates[0].content && data.candidates[0].content.parts[0].text) {
                     const replyText = data.candidates[0].content.parts[0].text;
                     aiSpeakAndListen(replyText);
                 } else {
-                    aiSpeakAndListen(currentLang === 'bn' ? "দুঃখিত, বুঝতে পারিনি। দয়া করে আবার বলবেন কি?" : "I didn't catch that, could you please repeat?");
+                    aiSpeakAndListen(currentLang === 'bn' ? "ধন্যবাদ, আপনার পরবর্তী বিষয়টি বলুন।" : "Thank you, please proceed.");
                 }
             } catch (err) {
                 aiSpeakAndListen(currentLang === 'bn' ? "নেটওয়ার্ক সমস্যা হয়েছে, দয়া করে আবার চেষ্টা করুন।" : "Network error occurred, please try again.");
