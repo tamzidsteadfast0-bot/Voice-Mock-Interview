@@ -273,17 +273,37 @@
             appendMessage('ai', text);
             conversationHistory.push({ role: "model", parts: [{ text: text }] });
 
-            const utterance = new SpeechSynthesisUtterance(text);
-            utterance.lang = currentLang === 'bn' ? 'bn-BD' : 'en-US';
-            utterance.rate = 0.90; // Slow down slightly for clear and natural pronunciation
+            if (currentLang === 'bn') {
+                // Google TTS Audio Stream bypasses browser voice pack limitations for native Bengali
+                const audioUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=bn&client=tw-ob`;
+                const audio = new Audio(audioUrl);
+                
+                audio.play().then(() => {
+                    audio.onended = function() {
+                        if (isSessionActive) {
+                            startVoiceRecognition();
+                        }
+                    };
+                }).catch(err => {
+                    // Fallback if audio fails to auto-play
+                    if (isSessionActive) {
+                        setTimeout(() => startVoiceRecognition(), 1500);
+                    }
+                });
+            } else {
+                // English uses standard browser SpeechSynthesis
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = 'en-US';
+                utterance.rate = 0.95;
 
-            utterance.onend = function() {
-                if (isSessionActive) {
-                    startVoiceRecognition();
-                }
-            };
+                utterance.onend = function() {
+                    if (isSessionActive) {
+                        startVoiceRecognition();
+                    }
+                };
 
-            window.speechSynthesis.speak(utterance);
+                window.speechSynthesis.speak(utterance);
+            }
         }
 
         function startVoiceRecognition() {
